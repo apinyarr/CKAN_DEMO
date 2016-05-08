@@ -1,0 +1,44 @@
+---
+- hosts: CKANtargetservers
+  remote_user: kaidee
+  become: yes
+  become_user: root
+  pre_tasks:
+  - name: update package information
+    apt: update_cache=yes
+  - name: ensure that APT works with the https method, and that CA certificates are installed
+    apt: name={{ item }} state=present
+    with_items:
+     - apt-transport-https
+     - ca-certificates
+  - name: add the new GPG key
+    apt_key: keyserver=hkp://p80.pool.sks-keyservers.net:80 id=58118E89F3A912897C070ADBF76221572C52609D
+  - name: create apt /etc/apt/sources.list.d/docker.list file
+    file: path=/etc/apt/sources.list.d/docker.list state=touch mode="u=rwx,g=r,o=r"
+  - name: add an entry to docker.list
+    lineinfile: dest=/etc/apt/sources.list.d/docker.list line="deb https://apt.dockerproject.org/repo ubuntu-trusty main"
+  - name: update the apt package
+    apt: update_cache=yes
+  - name: purge the old repo if it exists
+    apt: name=lxc-docker state=absent
+  - name: print system info and keep result in sys_info variable
+    command: /bin/uname -r
+    register: sys_info
+  - name: install linux-image-extra (prerequisite for Ubuntu 14.04)
+    apt: name=linux-image-extra-{{ sys_info.stdout }} state=present
+  - name: install apparmor (prerequisite for Ubuntu 14.04)
+    apt: name=apparmor state=present
+  tasks:
+  - name: update apt package index
+    apt: update_cache=yes
+  - name: install docker-engine
+    apt: name=docker-engine state=present
+  - name: start the docker daemon
+    service: name=docker state=started
+  - name: install python-pip for pip command
+    apt: name=python-pip state=present
+  - name: install docker-py with pip command in order to be controlled by docker module from ansible
+    pip: name=docker-py state=present
+  post_tasks:
+  - name: verify docker is installed correctly by calling docker run hello-world
+    docker: image=hello-world state=started

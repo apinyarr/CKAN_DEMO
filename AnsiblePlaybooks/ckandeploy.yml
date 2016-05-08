@@ -1,0 +1,27 @@
+---
+- hosts: CKANtargetservers
+  remote_user: kaidee
+  become: yes
+  become_user: root
+  pre_tasks:
+  - name: pull ckan/postgresql image
+    docker: image=ckan/postgresql state=present pull=missing
+  - name: pull cygri/solr image
+    docker: image=cygri/solr state=present pull=missing
+  - name: pull ckan/ckan image
+    docker: image=ckan/ckan state=present pull=missing
+  tasks:
+  - name: run ckan/postgresql container
+    docker: image=ckan/postgresql state=started name=db detach=True
+  - name: run cygri/solr container
+    docker: image=cygri/solr state=started name=solr detach=True
+  - name: run ckan/ckan container
+    docker: 
+      image: ckan/ckan 
+      state: started 
+      ports: 
+      - "80:80" 
+      detach: True
+      links:
+      - "db:db"
+      - "solr:solr"
